@@ -1,0 +1,21 @@
+apiVersion: apps/v1    # We're creating a Deployment (part of apps/v1 API group)
+kind: Deployment       # This file is for a Deployment resource
+metadata:
+  name: book-api-deployment    # Name of the deployment
+  labels:                      # Labels are just tags to identify this deployment
+    app: book-api
+spec:
+  replicas: 3                  # Run 3 instances (pods) of the app for redundancy
+  selector:                    # Selector ensures the deployment manages the right pods
+    matchLabels:
+      app: book-api            # Match pods with the "app: book-api" label
+  template:                    # Defines what the pods should look like
+    metadata:
+      labels:
+        app: book-api          # Label the pods as "app: book-api"
+    spec:                      # Specification for the containers in the pods
+      containers:
+      - name: book-api         # Name of the container (arbitrary)
+        image: abdullak123/book-api:latest  # The Docker image to use
+        ports:
+        - containerPort: 8000  # The port inside the container that the app listens on
