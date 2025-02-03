@@ -46,7 +46,13 @@ async def create_user(
     db.refresh(new_user)
 
     # Publish user created event
-    event = Event(name='user_created', data={'user_id': new_user.id})
+    event = Event(
+        name="user_created",
+        data={
+            "email": new_user.email,
+            "user_id": new_user.id,
+        }
+    )
     await event_bus.publish(event)
 
     return new_user
@@ -113,11 +119,16 @@ async def follow_user(
     db: Session = Depends(get_db)
 ) -> dict:
     try:
+         # check if the user exists
+        user_to_follow = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user_to_follow:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        follower_email = user_to_follow.email
+        follower_name = current_user.username
+        current_id = current_user.id
+
         with db.begin_nested():
-            # check if the user exists
-            user_to_follow = db.query(models.User).filter(models.User.id == user_id).first()
-            if not user_to_follow:
-                raise HTTPException(status_code=404, detail="User not found")
             
             # do not allow the user to follow themselves
             if current_user.id == user_id:
@@ -139,10 +150,27 @@ async def follow_user(
             
             # commit the changes to the database
             db.commit()
+            
+            # Publish a new follower notification event
+            event = Event(
+                name="new_follower",
+                data={
+                    "email": follower_email,
+                    "follower_name": follower_name,
+                    "follower_profile_url": f"{request.base_url}/users/{current_id}"
+                }
+            )
+            await event_bus.publish(event)
+
             return {"message": f"Successfully followed user {user_id}"}
     except Exception as e:
-        if e.status_code in [400, 404]:
+        if not isinstance(e, HTTPException):
             raise e
+        if e.status_code in [400, 404]:
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=e.detail
+            )
         raise HTTPException(
             status_code=500,
             detail=f"Could not follow user: {e}"

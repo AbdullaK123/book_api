@@ -2,6 +2,7 @@ from typing import Dict, List, Any, Callable, Coroutine
 from dataclasses import dataclass
 import logging
 from sqlalchemy.orm import Session
+from book_api.services.notifications.email_service import email_service
 from book_api.database import SessionLocal
 from book_api.utils.book_utils import (
     update_book_rating as update_book_rating_util, 
@@ -110,10 +111,46 @@ async def handle_user_created(event: Event):
         try:
             await create_default_shelves_util(db, user_id)
             logger.info(f"Successfully created default shelves for user: {user_id}")
+            await email_service.send_welcome_email(event.data.get('email'))
         finally:
             db.close()
     except Exception as e:
         logger.error(f"Failed to create default shelves: {str(e)}", exc_info=True)
+
+async def handle_new_follower(event: Event):
+    """
+    Handle the new_follower event by sending an email notification to the user
+    Args:
+        event (Event): Event containing follower_id in its data
+    """
+    logging.info(f"Processing new_follower event for follower: {event.data.get('follower_id')}")
+    try:
+        await email_service.follower_notification(
+            event.data.get('email'), 
+            event.data.get('follower_name'),
+            event.data.get('follower_profile_url')
+        )
+
+    except Exception as e:
+        logging.error(f"Failed to send follower notification: {str(e)}", exc_info=True)
+
+async def handle_new_review(event: Event):
+    """
+    Handle the new_review event by sending an email notification to the user
+    Args:
+        event (Event): Event containing review_id in its data
+    """
+    logging.info(f"Processing new_review event for review: {event.data.get('review_id')}")
+    try:
+        await email_service.review_notification(
+            event.data.get('email'), 
+            event.data.get('book_title'),
+            event.data.get('reviewer_name'),
+            event.data.get('review_url')
+        )
+
+    except Exception as e:
+        logging.error(f"Failed to send review notification: {str(e)}", exc_info=True)
 
 # Create event bus instance
 event_bus = EventBus()
@@ -121,5 +158,7 @@ event_bus = EventBus()
 # Register event handlers
 event_bus.subscribe("update_book_rating", handle_update_book_rating)
 event_bus.subscribe("user_created", handle_user_created)
+event_bus.subscribe("new_follower", handle_new_follower)
+event_bus.subscribe("new_review", handle_new_review)
 
 logger.info("Event bus system initialized with default handlers")

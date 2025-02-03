@@ -112,6 +112,18 @@ async def create_review(
     event = Event(name="update_book_rating", data={"book_id": review.book_id})
     await event_bus.publish(event)
 
+    # send review notification to book owner
+    event = Event(
+        name="new_review",
+        data={
+            "email": book.user.email,
+            "book_title": book.title,
+            "reviewer_name": current_user.username,
+            "review_url": f"{request.base_url}/reviews/{new_review.id}"
+        }
+    )
+    await event_bus.publish(event)
+
 
     return new_review
 
