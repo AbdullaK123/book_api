@@ -38,8 +38,7 @@ async def create_user(
     new_user = models.User(
         username=user.username,
         email=user.email,
-        hashed_password=hashed_password,
-        role=user.role if user.role else 'user'
+        hashed_password=hashed_password
     )
     db.add(new_user)
     db.commit()
